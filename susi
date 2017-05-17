@@ -4,7 +4,7 @@ var fs = require('fs'),
     commonmark = require('commonmark'),
     moment = require('moment'),
     ssiParser = require('tiny-ssi'),
-    hairlip = require('hairlip'),
+    Mustache = require('mustache'),
     path = require('path');
 
 var args = process.argv.slice(2);
@@ -34,11 +34,11 @@ function renderToHtml(config, inputFilePath, outputFilePath) {
       var renderer = new commonmark.HtmlRenderer();
       res.frontmatter.contents = renderer.render(parser.parse(res.content));
 
-      // add globals
+      //add globals
       res.frontmatter = Object.assign(config, res.frontmatter);
 
-      //and then parse through for "mustache-y" syntax...
-      var finalHTML = hairlip(res.frontmatter, String(layoutHTML));
+      //and then parse through for mustache syntax...
+      var finalHTML = Mustache.render(String(layoutHTML), res.frontmatter);
 
       fs.writeFile(outputFilePath, finalHTML, 'utf8');
       console.log("converted: "+inputFilePath+"->"+outputFilePath);
