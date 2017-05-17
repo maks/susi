@@ -24,6 +24,9 @@ function renderToHtml(config, inputFilePath, outputFilePath) {
   fs.readFile(inputFilePath, 'utf8', function(fileErr, fileContent) {
     var res = processMarkupContent(fileContent);
     if(res.frontmatter) {
+      //add globals
+      res.frontmatter = Object.assign(config, res.frontmatter);
+
       res.frontmatter.date = res.frontmatter.date ? moment(res.frontmatter.date).format('MMMM Do YYYY') : moment().format('MMMM Do YYYY');
       res.frontmatter.layout = res.frontmatter.layout || "page"; //default to page layout
       var layoutHTML = fs.readFileSync(layoutPathPrefix+res.frontmatter.layout+".html", 'utf8');
@@ -32,10 +35,10 @@ function renderToHtml(config, inputFilePath, outputFilePath) {
 
       var parser   = new commonmark.Parser();
       var renderer = new commonmark.HtmlRenderer();
-      res.frontmatter.contents = renderer.render(parser.parse(res.content));
 
-      //add globals
-      res.frontmatter = Object.assign(config, res.frontmatter);
+      //first process any Mustache in the contents of the page
+      var processedContents = Mustache.render(String(res.content), res.frontmatter);
+      res.frontmatter.contents = renderer.render(parser.parse(processedContents));
 
       //and then parse through for mustache syntax...
       var finalHTML = Mustache.render(String(layoutHTML), res.frontmatter);
