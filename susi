@@ -10,13 +10,17 @@ var fs = require('fs'),
 var args = process.argv.slice(2);
 var layoutPathPrefix = path.resolve(args[2]); //expect it to have trailing slash
 
-if(layoutPathPrefix.slice(-1) !== '/') layoutPathPrefix += '/';
+var CONFIG_FILE_PATH = "_config.json";
+
+if (layoutPathPrefix.slice(-1) !== '/') {
+    layoutPathPrefix += '/';
+}
 
 function stripExtension(fileName) {
   return fileName.substr(0, fileName.lastIndexOf('.'));
 }
 
-function renderToHtml(inputFilePath, outputFilePath) {
+function renderToHtml(config, inputFilePath, outputFilePath) {
   fs.readFile(inputFilePath, 'utf8', function(fileErr, fileContent) {
     var res = processMarkupContent(fileContent);
     if(res.frontmatter) {
@@ -30,6 +34,9 @@ function renderToHtml(inputFilePath, outputFilePath) {
       var renderer = new commonmark.HtmlRenderer();
       res.frontmatter.contents = renderer.render(parser.parse(res.content));
 
+      // add globals
+      res.frontmatter = Object.assign(config, res.frontmatter);
+
       //and then parse through for "mustache-y" syntax...
       var finalHTML = hairlip(res.frontmatter, String(layoutHTML));
 
@@ -41,7 +48,7 @@ function renderToHtml(inputFilePath, outputFilePath) {
   });
 }
 
-function convertFilesInPath(inputPath, outputPath) {
+function convertFilesInPath(config, inputPath, outputPath) {
 
   //make sure paths are slash terminated
   inputPath = (inputPath.lastIndexOf('/') === inputPath.length -1) ? inputPath : inputPath + '/' ;
@@ -50,7 +57,7 @@ function convertFilesInPath(inputPath, outputPath) {
   fs.readdir(path.resolve(inputPath), function(pathErr, files) {
     files.forEach(function(file) {
       if(fs.lstatSync(inputPath + file).isDirectory()) {
-        convertFilesInPath(inputPath + file, outputPath+ file);
+        convertFilesInPath(config, inputPath + file, outputPath+ file);
         return;
       } else if (file.substr(-2) != 'md') {
         return;
@@ -60,7 +67,7 @@ function convertFilesInPath(inputPath, outputPath) {
         fs.mkdirSync(outputPath);
       }
 
-      renderToHtml(inputPath+ file, outputPath + stripExtension(file) + '.html');
+      renderToHtml(config, inputPath+ file, outputPath + stripExtension(file) + '.html');
     });
   });
 }
@@ -88,4 +95,12 @@ function processMarkupContent(data) {
   };
 }
 
-convertFilesInPath(args[0], args[1]);
+// read in global config
+fs.readFile(CONFIG_FILE_PATH, 'utf8', function(fileErr, fileContent) {
+    if (fileErr) {
+        console.error("Missing: "+CONFIG_FILE_PATH);
+        process.exit(1);
+    }
+    var config = JSON.parse(fileContent);
+    convertFilesInPath(config, args[0], args[1]);
+});
