@@ -20,16 +20,17 @@ To setup, you run
 and then to parse markdown files into HTML you can use:
 
 ```shell
-    susi directory/with/markdown_files/ output_directory/ path/to/layouts/
+    susi directory/with/markdown_files/ output_directory/ path/to/layouts/ path/to/partials
 ```
 
 So, for example:
 
 ```shell
-    susi /var/www/markdown /var/www/html  /var/www/layout.html
+    susi /var/www/markdown /var/www/html  /var/www/layout.html /var/www/partials
 ```
 
-will parse all markdown files in `/var/www/markdown/` and will create corresponding HTML files in `/var/www/html/` using the `/var/www/layout.html` file.
+will parse all markdown files in `/var/www/markdown/` and will create corresponding HTML files in `/var/www/html/` using the `/var/www/layout.html` file and the
+partials files in `/var/www/partials`.
 
 ## Using a layout
 
@@ -132,17 +133,15 @@ specified as the third parameter on the commandline to susi.
 Of course additional, custom attributes can be optionally included in the frontmatter json and can then be used
 in all the html layout files using the "Mustache" style syntax.
 
-### Simple Includes
+### Includes
 
-The html layout files can use the [Apache SSI style html comment "include" directive](http://httpd.apache.org/docs/2.2/mod/mod_include.html#element.include)
-to pull in other layout files to provide basica support for "partials", to help keep things DRY, eg.
+You can use Mustache partials to include file from the `partials` directory, to help keep things DRY,.
+*NOTE:* file names of partials will have period replaced with underscore characters.
+ eg.
 
 ```html
-
- <!--#include virtual="meta.html" -->
-
- <!--#include virtual="header.html" -->
-
+  {{>meta_html}}
+  {{>header_html}}
     <div class="container">
       <div class="starter-template">
         <h1>{{title}}</h1>
@@ -150,14 +149,11 @@ to pull in other layout files to provide basica support for "partials", to help 
           {{contents}}
         </p>
       </div>
-
     </div><!-- /.container -->
-
-    <!--#include virtual="footer.html" -->
+  {{>footer_html}}
 ```
 
-*Note:* the "included" files can use the "Mustache" syntax as well, as they will be resolved after all the include directives
-have been processed.
+*Note:* the partials files can use Mustache syntax as well.
 
 Now, seriously, go make static websites!
 

@@ -3,17 +3,21 @@
 var fs = require('fs'),
     commonmark = require('commonmark'),
     moment = require('moment'),
-    ssiParser = require('tiny-ssi'),
     Mustache = require('mustache'),
     path = require('path');
 
 var args = process.argv.slice(2);
+
 var layoutPathPrefix = path.resolve(args[2]); //expect it to have trailing slash
+var partialsPathPrefix = path.resolve(args[3]); //expect it to have trailing slash
 
 var CONFIG_FILE_PATH = "_config.json";
 
 if (layoutPathPrefix.slice(-1) !== '/') {
     layoutPathPrefix += '/';
+}
+if (partialsPathPrefix.slice(-1) !== '/') {
+    partialsPathPrefix += '/';
 }
 
 function stripExtension(fileName) {
@@ -30,18 +34,18 @@ function renderToHtml(config, inputFilePath, outputFilePath) {
       res.frontmatter.date = res.frontmatter.date ? moment(res.frontmatter.date).format('MMMM Do YYYY') : moment().format('MMMM Do YYYY');
       res.frontmatter.layout = res.frontmatter.layout || "page"; //default to page layout
       var layoutHTML = fs.readFileSync(layoutPathPrefix+res.frontmatter.layout+".html", 'utf8');
-      //first pull in all includes in html
-      layoutHTML = ssiParser(layoutPathPrefix+"/dummy", layoutHTML); //needs file path not just dir, hence dummy
+
+      //first pull in all includes for use as partials
+      var partials = readFilesSync(partialsPathPrefix);
 
       var parser   = new commonmark.Parser();
       var renderer = new commonmark.HtmlRenderer();
 
-      //first process any Mustache in the contents of the page
-      var processedContents = Mustache.render(String(res.content), res.frontmatter);
-      res.frontmatter.contents = renderer.render(parser.parse(processedContents));
+      //first process markdown
+      res.frontmatter.contents = renderer.render(parser.parse(String(res.content)));
 
-      //and then parse through for mustache syntax...
-      var finalHTML = Mustache.render(String(layoutHTML), res.frontmatter);
+      //and then process  mustache syntax, including using partials
+      var finalHTML = Mustache.render(String(layoutHTML), res.frontmatter, partials);
 
       fs.writeFile(outputFilePath, finalHTML, 'utf8');
       console.log("converted: "+inputFilePath+"->"+outputFilePath);
@@ -49,6 +53,19 @@ function renderToHtml(config, inputFilePath, outputFilePath) {
       console.warn(inputFilePath + " is missing the Frontmatter section!")
     }
   });
+}
+
+/**
+ * Read in all file in dirname
+ * ref: http://stackoverflow.com/a/10049704/85472
+ */
+function readFilesSync(dirname) {
+  var filenames = fs.readdirSync(dirname);
+  var data = {};
+  filenames.forEach(function(filename) {
+      data[filename.replace(".","_")] = fs.readFileSync(dirname + filename, 'utf-8');
+  });
+  return data;
 }
 
 function convertFilesInPath(config, inputPath, outputPath) {
