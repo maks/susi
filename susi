@@ -8,16 +8,18 @@ var fs = require('fs'),
 
 var args = process.argv.slice(2);
 
+var pagesPath = path.resolve(args[0]); //expect it to have trailing slash
+var outputPath = path.resolve(args[1]); //expect it to have trailing slash
 var layoutPathPrefix = path.resolve(args[2]); //expect it to have trailing slash
-var partialsPathPrefix = path.resolve(args[3]); //expect it to have trailing slash
+var partialsPath = path.resolve(args[3]); //expect it to have trailing slash
 
 var CONFIG_FILE_PATH = "_config.json";
 
 if (layoutPathPrefix.slice(-1) !== '/') {
     layoutPathPrefix += '/';
 }
-if (partialsPathPrefix.slice(-1) !== '/') {
-    partialsPathPrefix += '/';
+if (partialsPath.slice(-1) !== '/') {
+    partialsPath += '/';
 }
 
 function stripExtension(fileName) {
@@ -36,7 +38,7 @@ function renderToHtml(config, inputFilePath, outputFilePath) {
       var layoutHTML = fs.readFileSync(layoutPathPrefix+res.frontmatter.layout+".html", 'utf8');
 
       //first pull in all includes for use as partials
-      var partials = readFilesSync(partialsPathPrefix);
+      var partials = readFilesSync(partialsPath);
 
       var parser   = new commonmark.Parser();
       var renderer = new commonmark.HtmlRenderer();
@@ -55,6 +57,14 @@ function renderToHtml(config, inputFilePath, outputFilePath) {
   });
 }
 
+function renderToPlainText(config, inputFilePath, outputFilePath) {
+    var partials = readFilesSync(partialsPath);
+    var inputFileContents = fs.readFileSync(inputFilePath, 'utf8');
+    var finalText =  Mustache.render(inputFileContents, config, partials);
+    fs.writeFile(outputFilePath, finalText, 'utf8');
+    console.log("converted: "+inputFilePath+"->"+outputFilePath);
+}
+
 /**
  * Read in all file in dirname
  * ref: http://stackoverflow.com/a/10049704/85472
@@ -68,6 +78,33 @@ function readFilesSync(dirname) {
   return data;
 }
 
+/**
+ * Copy file SYNCronhously
+ * ref: http://stackoverflow.com/a/41517354/85472
+ */
+function copySync(src, dest) {
+  if (!fs.existsSync(src)) {
+    return false;
+  }
+
+  var data = fs.readFileSync(src, 'utf-8');
+  fs.writeFileSync(dest, data);
+}
+
+/**
+ * Create dir recursively if it does not exist!
+ * ref: http://stackoverflow.com/a/40686853/85472
+ */
+function mkdirPSync(newDir) {
+    newDir.split('/').forEach((dir, index, splits) => {
+      const parent = splits.slice(0, index).join('/');
+      const dirPath = path.resolve(parent, dir);
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath);
+      }
+    });
+}
+
 function convertFilesInPath(config, inputPath, outputPath) {
 
   //make sure paths are slash terminated
@@ -79,15 +116,19 @@ function convertFilesInPath(config, inputPath, outputPath) {
       if(fs.lstatSync(inputPath + file).isDirectory()) {
         convertFilesInPath(config, inputPath + file, outputPath+ file);
         return;
-      } else if (file.substr(-2) != 'md') {
-        return;
       }
 
       if(!fs.existsSync(outputPath)) {
-        fs.mkdirSync(outputPath);
+        mkdirPSync(outputPath);
       }
 
-      renderToHtml(config, inputPath+ file, outputPath + stripExtension(file) + '.html');
+      if (file.endsWith(".md")) {
+          renderToHtml(config, inputPath + file, outputPath + stripExtension(file) + '.html');
+      } else if (file.endsWith(".css") ) {
+          renderToPlainText(config, inputPath + file, outputPath + file);
+      } else {
+          copySync(inputPath + file, outputPath + file);
+      }
     });
   });
 }
@@ -122,5 +163,5 @@ fs.readFile(CONFIG_FILE_PATH, 'utf8', function(fileErr, fileContent) {
         process.exit(1);
     }
     var config = JSON.parse(fileContent);
-    convertFilesInPath(config, args[0], args[1]);
+    convertFilesInPath(config, pagesPath, outputPath);
 });
