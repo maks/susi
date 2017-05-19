@@ -80,15 +80,13 @@ function readFilesSync(dirname) {
 
 /**
  * Copy file SYNCronhously
- * ref: http://stackoverflow.com/a/41517354/85472
+ * ref: http://stackoverflow.com/a/11295106/85472
  */
 function copySync(src, dest) {
   if (!fs.existsSync(src)) {
     return false;
   }
-
-  var data = fs.readFileSync(src, 'utf-8');
-  fs.writeFileSync(dest, data);
+  fs.createReadStream(src).pipe(fs.createWriteStream(dest));
 }
 
 /**
